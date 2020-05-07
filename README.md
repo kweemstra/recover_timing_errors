@@ -1,4 +1,4 @@
-# Recovering timing errors of seismic stations using seismic interferometry
+# Recovering timing errors using seismic interferometry
 Created by Cornelis Weemstra, May 7, 2020
 
 ## Description
