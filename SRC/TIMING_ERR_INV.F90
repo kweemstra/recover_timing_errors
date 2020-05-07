@@ -3,7 +3,11 @@ program TIMING_ERR_INV
 !#############################################################################################
 !#                                              
 !#
-!#                  cross-correlate every trace with every other
+!#         Read time-averaged crosscorrelations computed from a large-N seismic array
+!#      and determine the difference in arrival time between the direct wave at positive 
+!#     time and the direct wave at negative time. These measurements allow one to set up 
+!#     a system of equations which can be solved for potential timing errors of (some) of 
+!#      the stations. The details are given in the GJI publication ... 
 !#
 !#
 !#############################################################################################
@@ -135,20 +139,22 @@ real(kind=4)      , parameter :: wl_trh_incr=0.25
 real(kind=4)      , parameter :: fwidth1=1.2    ! width (in octaves) at 0.15 Hz
 real(kind=4)      , parameter :: fwidth2=0.8    ! width (in octaves) at 0.75 Hz
 real(4)           , parameter :: twidth=0.04       ! width of taper (one side)
-real(8)           , parameter :: dt_err=0.004          ! Resolution in time for which we determine the error
+real(8)           , parameter :: dt_err=0.004      ! Resolution in time for which we determine the error
 
+!!! Stations that whose timing is known to be correct (zero timing error), and who can therefore be eliminated from the system of equations.
 character(len=3)  , parameter,dimension(30) :: stations_corr = (/'BER','EIN','GEV','HAH','HAS','HOS','KEF','KUG','LFE','ONG','PAT','PRE','RAH','RAR','RET','SDV','SKG','SKH','STA','SUH','NEW','HOP','KHR','KRV','SKF','STF','STK','VSV','ARN','MER'/)
 
 character(len=3)  , parameter,dimension(21) :: stations_disc = (/'O08','O10','O21','O22','KEF','NYL','O07','O11','O06','O12','GEI','VOS','HDV','ELB','SEA','O01','O02','O16','O15','O17','O18'/)
 
 integer           , parameter :: passes=2,order=4
 double precision  , parameter :: transition_bandwidth=0.0, attenuation=0.0
+
 real(8)           , parameter :: noise_st=240.     ! start of the noise window (in seconds) used for the computation of the SNR
-!! Uniform
+!! Synthetic uniform
 !real(4)           , parameter :: lsnr_trh=10.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
 !real(4)           , parameter :: hsnr_trh=10.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
 !real(4)           , parameter :: snr_trh_incr=10.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
-!! Non-Uniform
+!! Synthetic non-Uniform
 !real(4)           , parameter :: lsnr_trh=5.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
 !real(4)           , parameter :: hsnr_trh=60.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
 !real(4)           , parameter :: snr_trh_incr=5.   ! Required signal-to-noise ratio of both causal and anti-causal part to be included 
@@ -159,19 +165,20 @@ real(4)           , parameter :: snr_trh_incr=5.   ! Required signal-to-noise ra
 
 integer(kind=4)   , parameter :: ninv=3    ! Number of inversion strategies (currently 3: least squares, weighted least squares, and non-zero mean weighted least squares)
 
-double precision  , parameter :: eps=1.0
-
+!!!! File containing station information (station code, lat, lon, etc.)
+character(len=150), parameter  :: station_info='/vardim/home/weemstra/IMAGE/station_info'
+!!!! Reference dispersion curves
 !character(len=150), parameter  :: disp_info='/vardim/home/weemstra/IMAGE/disp_PREM300.data'
 character(len=150), parameter  :: disp_info='/vardim/home/weemstra/IMAGE/Q_U_c_vs_T_n0_3km_1.5-20s.txt'
-character(len=150), parameter  :: station_info='/vardim/home/weemstra/IMAGE/station_info'
 character(len=150), parameter  :: ref_path='/vardim/home/weemstra/IMAGE/FIELD_RESULTS/DISP_CURVES/SEL_REF_CURVES/'
-!!! The initial errors are estimated using long period global phases
+!!! The initial errors are estimated using long period global phases and can be found in the following file:
 character(len=150), parameter  :: init_instr_err='/vardim/home/weemstra/IMAGE/FIELD_RESULTS/INSTR_CORR/apriori_dt_estimates'
-!!! This code is suitable for both synthetic and real data. 
+!!! This code is suitable for both synthetic and field data. 
 !character(len=150), parameter  :: td_path='/vardim/home/weemstra/IMAGE/SYNTH_RESULTS/CORRS/INSTR_CORR/CIRCLE_UNI/SRATE_25_NO_STALTA_TD_WHITE/'
 !character(len=150), parameter  :: td_path='/vardim/home/weemstra/IMAGE/SYNTH_RESULTS/CORRS/INSTR_CORR/CIRCLE_NUNI/SRATE_25_NO_STALTA_TD_WHITE/'
 character(len=150), parameter  :: td_path='/vardim/home/weemstra/IMAGE/FIELD_RESULTS/CORRS/INSTR_CORR/SRATE_25_NO_STALTA_TD_WHITE/'
 
+!!! Location to which results are written
 !character(len=150), parameter  :: wpath='/vardim/home/weemstra/IMAGE/SYNTH_RESULTS/CIRCLE_UNI/'
 !character(len=150), parameter  :: wpath='/vardim/home/weemstra/IMAGE/SYNTH_RESULTS/CIRCLE_NUNI/'
 !character(len=150), parameter  :: wpath='/vardim/home/weemstra/IMAGE/SYNTH_RESULTS/CIRCLE_NUNI_ALL/'
@@ -302,6 +309,8 @@ close(11)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!!! This piece determined wheter we are dealing with synthetic data (1 or 3), or with field data (2)
+!!! Depending on the type of data, different parts of the code will be exceuted
 call parse(trim(td_path),'/',args,nargs)
 do i=1,nargs
   if(trim(args(i)) .eq. 'CIRCLE_UNI') then
@@ -381,6 +390,7 @@ nf=nint((fmax-fmin)/fincr)+1
 allocate(cfs(nf), lfs(nf), hfs(nf), ref_curves(nf,ref_ncpls))
 ref_curves=0.
 
+!!! Mind you: This part is hard code for an fmin of 0.13 and fmax of 0.75
 slope=(fwidth2-fwidth1)/0.62
 intercept=fwidth1-(slope*0.13)
 nfdo1: do i=1,nf
@@ -1735,7 +1745,6 @@ nfdo5:do j=1,nf
 
 enddo nfdo5
 
-!!!!!!!!!!!!!!!!!!!!!!!! Calculate the zero crossings and write them to files !!!!!!!!!!!!!!!!!!!!!!!!!!!  
 do i=1,ncpls
   if(allocated(cpl_info(i)%cepsecs))then
     deallocate(cpl_info(i)%cepsecs)
