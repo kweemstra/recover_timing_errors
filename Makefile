@@ -1,28 +1,12 @@
 SHELL = /bin/bash	# Needs to be defined
 
-# This makefile takes care of the compilation of all the programs.
-# Sourcefiles for the main programs are given by the capitalized filenames in the SRC directory
+# This makefile takes care of the compilation of the following program:
+# ./SRC/TIMIING_ERR_INV.F90 		-> ./BIN/Timing_err_inv
 
-# The following programs are compiled by this makefile:
-
-# ./SRC/XCORRS.F90 		-> ./BIN/Xcorrs
-# ./SRC/BESSEL.F90 		-> ./BIN/Bessel
-# ./SRC/GET_VEL.F90 		-> ./BIN/Get_vel
-# ./SRC/GET_VEL_AND_ALPHA.F90 	-> ./BIN/Get_vel_and_alpha
-
-# IMPORTANT NOTES: 
-
-# The Capital fortran extensions are automatically preprocessed, which is neccessary in case of Macro's...
-
-## Module command line options for compiling with ``gfortran'': 
-# -J defines directory to store the modules. It also checks this directory for modules. (i.e. by the ``include'' statement)
-### Module command line options for compiling with ``ifort'':
-# -module defines directory to store the modules.
-# -I defines directories that will be searched for modules, (i.e. by the ``include'' and ``use'' statements); there can be multiple -I statements
-
+# Some notes:
 # -c flag makes sure the linking is not done until all the source scripts providing modules are compiled.
 # Never only remove the .mod files in the MODULES directory! they are used...
-# If you do remove them, make sure you also remove the corresponding object .o files, because the make utility checks if these oject files are updated (or not!)
+# If you do remove them, make sure you also remove the corresponding object .o files, because the make utility checks if these oject files are updated (or not)
 
 ######################################################################################################################
 ####################################################### COMPILER #####################################################
@@ -31,34 +15,6 @@ SHELL = /bin/bash	# Needs to be defined
 #FOR=gfortran
 FOR=mpif90
 #FOR=mpiifort
-
-######################################################################################################################
-####################################################### COMPILER #####################################################
-######################################################################################################################
-
-#Variables
-dO=./dierckx/OBJ
-dS=./dierckx/SRC
-dM=./dierckx/MOD
-
-Dierckx = ${dO}/spgrid.o ${dO}/fpopsp.o ${dO}/fpbacp.o ${dO}/fpchec.o ${dO}/fpgrsp.o ${dO}/fpknot.o ${dO}/fprati.o ${dO}/fpdisc.o ${dO}/fpgivs.o ${dO}/fpsysy.o ${dO}/fpchep.o ${dO}/fpbspl.o ${dO}/fpspgr.o ${dO}/fpcyt1.o ${dO}/fprota.o ${dO}/fpcyt2.o ${dO}/fpback.o ${dO}/bispev.o ${dO}/fpbisp.o
-
-${dO}/%.o		: ${dS}/%.f
-		${FOR} ${OPTFLAGS} -c $< -J${dM} -o $@
-
-lapO=./lapacktest/OBJ
-lapS=./lapacktest/SRC
-lapM=./lapacktest/MOD
-
-Lapsrc := $(notdir $(wildcard ${lapS}/*.f))
-Lapobj := $(patsubst %.f,${lapO}/%.o,$(Lapsrc))
-
-#$(info Lapsrc is $(Lapsrc))
-#$(info Lapobj is $(Lapobj))
-
-${lapO}/%.o		: ${lapS}/%.f
-		${FOR} ${OPTFLAGS} -c $< -J${lapM} -o $@
-
 
 ######################################################################################################################
 ############################################## MAKE MAIN PROGRAMMES ##################################################
@@ -70,7 +26,7 @@ S = ./SRC
 B = ./BIN
 O = ./OBJ
 
-# Libraries and their locations
+##### Libraries and their locations (Not all libraries are used. Libraries, and their locations, depends on your cluster/machine)
 SACLIBDIR=-L$(SACHOME)/lib
 SACLIBS=-lsac -lsacio
 SACMODS=-I$(SACHOME)/include
@@ -82,7 +38,7 @@ FFTWINCDIR=-I/vardim/home/weemstra/lib/fftw-3.3.4/api/         # Location fftw h
 #LAPACKLIBS=-llapack -lblas
 MKL=-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
 
-##### Flags
+##### Flags (Not all flags are used. Flags are also compiler specific)
 IFORTFLAGS=-g -Wall -fcheck bounds -ftraceback -fmax-errors=1 #-fcheck=all ##-fno-range-check
 DEBUGFLAGS=-g -Wall -fbounds-check -fbacktrace -fmax-errors=1 #-fcheck=all ##-fno-range-check
 OPTIONS=-ffree-line-length-none
